@@ -1,1 +1,65 @@
-databaseChangeLog: []
+databaseChangeLog:
+  - changeSet:
+      id: hu-06-004-create-core-indexes
+      author: JulianaFerro1428
+      comment: Add HU-06 core indexes and uniqueness invariants
+      changes:
+        - runCommand:
+            command: |
+              {
+                "createIndexes": "conversations",
+                "indexes": [
+                  {
+                    "key": { "patientId": 1 },
+                    "name": "uq_conversations_active_patient",
+                    "unique": true,
+                    "partialFilterExpression": { "status": "ACTIVE" }
+                  }
+                ]
+              }
+        - runCommand:
+            command: |
+              {
+                "createIndexes": "messages",
+                "indexes": [
+                  {
+                    "key": { "conversationId": 1, "timestamp": 1 },
+                    "name": "idx_messages_conversation_timestamp"
+                  }
+                ]
+              }
+        - runCommand:
+            command: |
+              {
+                "createIndexes": "preconsultation_summaries",
+                "indexes": [
+                  {
+                    "key": { "conversationId": 1 },
+                    "name": "uq_summaries_conversation",
+                    "unique": true
+                  },
+                  {
+                    "key": { "patientId": 1 },
+                    "name": "idx_summaries_patient"
+                  }
+                ]
+              }
+      rollback:
+        - runCommand:
+            command: |
+              {
+                "dropIndexes": "preconsultation_summaries",
+                "index": ["uq_summaries_conversation", "idx_summaries_patient"]
+              }
+        - runCommand:
+            command: |
+              {
+                "dropIndexes": "messages",
+                "index": "idx_messages_conversation_timestamp"
+              }
+        - runCommand:
+            command: |
+              {
+                "dropIndexes": "conversations",
+                "index": "uq_conversations_active_patient"
+              }
