@@ -9,43 +9,64 @@ databaseChangeLog:
             options: |
               {
                 "validator": {
-                  "$jsonSchema": {
-                    "bsonType": "object",
-                    "required": [
-                      "_id",
-                      "patientId",
-                      "startDateTime",
-                      "status",
-                      "createdAt",
-                      "updatedAt"
-                    ],
-                    "additionalProperties": false,
-                    "properties": {
-                      "_id": {
-                        "bsonType": "string",
-                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-                      },
-                      "patientId": {
-                        "bsonType": "string",
-                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-                      },
-                      "startDateTime": {
-                        "bsonType": "date"
-                      },
-                      "endDateTime": {
-                        "bsonType": "date"
-                      },
-                      "status": {
-                        "enum": ["ACTIVE", "FINISHED"]
-                      },
-                      "createdAt": {
-                        "bsonType": "date"
-                      },
-                      "updatedAt": {
-                        "bsonType": "date"
+                  "$and": [
+                    {
+                      "$jsonSchema": {
+                        "bsonType": "object",
+                        "required": [
+                          "_id",
+                          "patientId",
+                          "startDateTime",
+                          "status",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "_id": {
+                            "bsonType": "string",
+                            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                          },
+                          "patientId": {
+                            "bsonType": "string",
+                            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                          },
+                          "startDateTime": {
+                            "bsonType": "date"
+                          },
+                          "endDateTime": {
+                            "bsonType": "date"
+                          },
+                          "status": {
+                            "enum": [
+                              "ACTIVE",
+                              "FINISHED"
+                            ]
+                          },
+                          "createdAt": {
+                            "bsonType": "date"
+                          },
+                          "updatedAt": {
+                            "bsonType": "date"
+                          }
+                        }
                       }
+                    },
+                    {
+                      "$or": [
+                        {
+                          "status": {
+                            "$ne": "FINISHED"
+                          }
+                        },
+                        {
+                          "endDateTime": {
+                            "$type": "date"
+                          }
+                        }
+                      ]
                     }
-                  }
+                  ]
                 },
                 "validationLevel": "strict",
                 "validationAction": "error"
@@ -57,7 +78,7 @@ databaseChangeLog:
   - changeSet:
       id: hu-06-002-create-messages
       author: JulianaFerro1428
-      comment: Create messages collection with strict HU-06 validation
+      comment: Create messages collection with strict HU-06 validation and idempotency key support
       changes:
         - createCollection:
             collectionName: messages
@@ -70,6 +91,7 @@ databaseChangeLog:
                       "_id",
                       "conversationId",
                       "sender",
+                      "idempotencyKey",
                       "content",
                       "timestamp"
                     ],
@@ -84,7 +106,15 @@ databaseChangeLog:
                         "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
                       },
                       "sender": {
-                        "enum": ["PATIENT", "AGENT"]
+                        "enum": [
+                          "PATIENT",
+                          "AGENT"
+                        ]
+                      },
+                      "idempotencyKey": {
+                        "bsonType": "string",
+                        "minLength": 8,
+                        "maxLength": 128
                       },
                       "content": {
                         "bsonType": "string",
