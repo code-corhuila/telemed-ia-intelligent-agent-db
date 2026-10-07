@@ -101,6 +101,51 @@ business change.
 The event payload exposes identifiers only and does not duplicate the full
 conversation or clinical content.
 
+## Database access roles
+
+Database access follows the principle of least privilege.
+
+The repository defines domain roles only. It does not create MongoDB users,
+store passwords, or commit runtime credentials.
+
+### `intelligent_agent_reader`
+
+Read-only access to the Intelligent Agent business collections:
+
+- `conversations`
+- `messages`
+- `preconsultation_summaries`
+- `idempotency_records`
+- `outbox_events`
+
+The role only receives the `find` action.
+
+### `intelligent_agent_writer`
+
+Inherits `intelligent_agent_reader` and adds:
+
+- `insert`
+- `update`
+- `remove`
+
+for the same business collections.
+
+Neither role receives:
+
+- Database-wide collection privileges.
+- Access to Liquibase control collections.
+- Collection or index administration permissions.
+- User or role administration permissions.
+
+The following Liquibase collections remain migration-tool infrastructure and
+are not exposed to application roles:
+
+- `databasechangelog_intelligent_agent`
+- `databasechangeloglock_intelligent_agent`
+
+MongoDB users and credentials are provisioned externally by the shared
+MongoDB infrastructure and are not owned by this repository.
+
 ## MongoDB schema rules
 
 Collections are governed by MongoDB `$jsonSchema` validators.
