@@ -1,4 +1,8 @@
-const requiredCollections = ["idempotency_records", "outbox_events"];
+const requiredCollections = [
+  "idempotency_records",
+  "outbox_events",
+  "preconsultation_summaries"
+];
 
 for (const name of requiredCollections) {
   if (!db.getCollectionNames().includes(name)) {
@@ -6,25 +10,47 @@ for (const name of requiredCollections) {
   }
 }
 
-const patientId = "11111111-1111-4111-8111-111111111111";
-const conversationId = "22222222-2222-4222-8222-222222222222";
-const summaryId = "33333333-3333-4333-8333-333333333333";
-const eventId = "44444444-4444-4444-8444-444444444444";
-const correlationId = "55555555-5555-4555-8555-555555555555";
-const expiresAt = new Date(Date.now() + 86400000);
+const patientId =
+  "11111111-1111-4111-8111-111111111111";
 
-function expectMongoError(label, expectedCode, action) {
+const conversationId =
+  "22222222-2222-4222-8222-222222222222";
+
+const summaryId =
+  "33333333-3333-4333-8333-333333333333";
+
+const eventId =
+  "44444444-4444-4444-8444-444444444444";
+
+const correlationId =
+  "55555555-5555-4555-8555-555555555555";
+
+const appointmentId =
+  "12121212-1212-4121-8121-121212121212";
+
+const expiresAt =
+  new Date(Date.now() + 86400000);
+
+function expectMongoError(
+  label,
+  expectedCode,
+  action
+) {
   try {
     action();
   } catch (error) {
-    if (error.code === expectedCode) return;
+    if (error.code === expectedCode) {
+      return;
+    }
 
     throw new Error(
       `${label}: expected MongoDB code ${expectedCode}, got ${error.code}: ${error.message}`
     );
   }
 
-  throw new Error(`${label}: expected MongoDB error ${expectedCode}`);
+  throw new Error(
+    `${label}: expected MongoDB error ${expectedCode}`
+  );
 }
 
 db.idempotency_records.deleteMany({});
@@ -41,30 +67,38 @@ db.idempotency_records.insertOne({
   expiresAt
 });
 
-expectMongoError("duplicate idempotency key", 11000, () =>
-  db.idempotency_records.insertOne({
-    _id: "77777777-7777-4777-8777-777777777777",
-    principalId: patientId,
-    operation: "START_PRECONSULTATION",
-    key: "start-preconsultation-001",
-    resourceType: "CONVERSATION",
-    resourceId: "88888888-8888-4888-8888-888888888888",
-    createdAt: new Date(),
-    expiresAt
-  })
+expectMongoError(
+  "duplicate idempotency key",
+  11000,
+  () =>
+    db.idempotency_records.insertOne({
+      _id: "77777777-7777-4777-8777-777777777777",
+      principalId: patientId,
+      operation: "START_PRECONSULTATION",
+      key: "start-preconsultation-001",
+      resourceType: "CONVERSATION",
+      resourceId:
+        "88888888-8888-4888-8888-888888888888",
+      createdAt: new Date(),
+      expiresAt
+    })
 );
 
-expectMongoError("short idempotency key", 121, () =>
-  db.idempotency_records.insertOne({
-    _id: "99999999-9999-4999-8999-999999999999",
-    principalId: patientId,
-    operation: "SEND_MESSAGE",
-    key: "short",
-    resourceType: "MESSAGE",
-    resourceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-    createdAt: new Date(),
-    expiresAt
-  })
+expectMongoError(
+  "short idempotency key",
+  121,
+  () =>
+    db.idempotency_records.insertOne({
+      _id: "99999999-9999-4999-8999-999999999999",
+      principalId: patientId,
+      operation: "SEND_MESSAGE",
+      key: "short",
+      resourceType: "MESSAGE",
+      resourceId:
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      createdAt: new Date(),
+      expiresAt
+    })
 );
 
 db.outbox_events.insertOne({
@@ -78,81 +112,145 @@ db.outbox_events.insertOne({
   createdAt: new Date(),
   payload: {
     summaryId,
+    appointmentId,
     patientId,
     conversationId,
     generatedAt: new Date()
   }
 });
 
-expectMongoError("duplicate summary generated event", 11000, () =>
-  db.outbox_events.insertOne({
-    _id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-    eventType: "PreConsultationSummaryGenerated",
-    aggregateType: "PRECONSULTATION_SUMMARY",
-    aggregateId: summaryId,
-    correlationId,
-    status: "PENDING",
-    occurredAt: new Date(),
-    createdAt: new Date(),
-    payload: {
-      summaryId,
-      patientId,
-      conversationId,
-      generatedAt: new Date()
-    }
-  })
+expectMongoError(
+  "duplicate summary generated event",
+  11000,
+  () =>
+    db.outbox_events.insertOne({
+      _id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      eventType: "PreConsultationSummaryGenerated",
+      aggregateType: "PRECONSULTATION_SUMMARY",
+      aggregateId: summaryId,
+      correlationId,
+      status: "PENDING",
+      occurredAt: new Date(),
+      createdAt: new Date(),
+      payload: {
+        summaryId,
+        appointmentId,
+        patientId,
+        conversationId,
+        generatedAt: new Date()
+      }
+    })
 );
 
-expectMongoError("clinical content in outbox payload", 121, () =>
-  db.outbox_events.insertOne({
-    _id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-    eventType: "PreConsultationSummaryGenerated",
-    aggregateType: "PRECONSULTATION_SUMMARY",
-    aggregateId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
-    correlationId,
-    status: "PENDING",
-    occurredAt: new Date(),
-    createdAt: new Date(),
-    payload: {
-      summaryId,
-      patientId,
-      conversationId,
-      generatedAt: new Date(),
-      diagnosis: "Not allowed"
-    }
-  })
+expectMongoError(
+  "clinical content in outbox payload",
+  121,
+  () =>
+    db.outbox_events.insertOne({
+      _id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      eventType: "PreConsultationSummaryGenerated",
+      aggregateType: "PRECONSULTATION_SUMMARY",
+      aggregateId:
+        "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      correlationId,
+      status: "PENDING",
+      occurredAt: new Date(),
+      createdAt: new Date(),
+      payload: {
+        summaryId,
+        appointmentId,
+        patientId,
+        conversationId,
+        generatedAt: new Date(),
+        diagnosis: "Not allowed"
+      }
+    })
 );
 
 const expectedIndexes = [
-  ["idempotency_records", "uq_idempotency_principal_operation_key"],
-  ["idempotency_records", "idx_idempotency_expires_at"],
-  ["outbox_events", "uq_outbox_summary_event"],
-  ["outbox_events", "idx_outbox_status_occurred_at"]
+  [
+    "idempotency_records",
+    "uq_idempotency_principal_operation_key"
+  ],
+  [
+    "idempotency_records",
+    "idx_idempotency_expires_at"
+  ],
+  [
+    "outbox_events",
+    "uq_outbox_summary_event"
+  ],
+  [
+    "outbox_events",
+    "idx_outbox_status_occurred_at"
+  ]
 ];
 
 for (const [collection, indexName] of expectedIndexes) {
-  if (!db.getCollection(collection).getIndexes().some(i => i.name === indexName)) {
-    throw new Error(`Missing index: ${collection}.${indexName}`);
+  const exists = db
+    .getCollection(collection)
+    .getIndexes()
+    .some(index => index.name === indexName);
+
+  if (!exists) {
+    throw new Error(
+      `Missing index: ${collection}.${indexName}`
+    );
   }
 }
 
 const ttlIndex = db.idempotency_records
   .getIndexes()
-  .find(i => i.name === "idx_idempotency_expires_at");
+  .find(
+    index =>
+      index.name === "idx_idempotency_expires_at"
+  );
 
-if (Number(ttlIndex.expireAfterSeconds) !== 0) {
-  throw new Error("Idempotency TTL index must use expireAfterSeconds=0");
+if (!ttlIndex) {
+  throw new Error(
+    "Missing idempotency TTL index"
+  );
 }
 
-const txSummaryId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
-const txConversationId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
-const txEventId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+if (
+  Number(ttlIndex.expireAfterSeconds) !== 0
+) {
+  throw new Error(
+    "Idempotency TTL index must use expireAfterSeconds=0"
+  );
+}
 
-db.preconsultation_summaries.deleteMany({ _id: txSummaryId });
-db.outbox_events.deleteMany({ _id: txEventId });
+const txSummaryId =
+  "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 
-const session = db.getMongo().startSession();
-const txdb = session.getDatabase(db.getName());
+const txConversationId =
+  "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+
+const txEventId =
+  "ffffffff-ffff-4fff-8fff-ffffffffffff";
+
+const txAppointmentId =
+  "13131313-1313-4131-8131-131313131313";
+
+db.preconsultation_summaries.deleteMany({
+  $or: [
+    { _id: txSummaryId },
+    { appointmentId: txAppointmentId }
+  ]
+});
+
+db.outbox_events.deleteMany({
+  $or: [
+    { _id: txEventId },
+    { aggregateId: txSummaryId }
+  ]
+});
+
+const session =
+  db.getMongo().startSession();
+
+const txdb =
+  session.getDatabase(db.getName());
 
 try {
   session.startTransaction();
@@ -160,15 +258,19 @@ try {
   txdb.preconsultation_summaries.insertOne({
     _id: txSummaryId,
     conversationId: txConversationId,
+    appointmentId: txAppointmentId,
     patientId,
-    consultationReason: "Transactional outbox test",
+    consultationReason:
+      "Transactional outbox test",
     createdAt: new Date()
   });
 
   txdb.outbox_events.insertOne({
     _id: txEventId,
-    eventType: "PreConsultationSummaryGenerated",
-    aggregateType: "PRECONSULTATION_SUMMARY",
+    eventType:
+      "PreConsultationSummaryGenerated",
+    aggregateType:
+      "PRECONSULTATION_SUMMARY",
     aggregateId: txSummaryId,
     correlationId,
     status: "PENDING",
@@ -176,6 +278,7 @@ try {
     createdAt: new Date(),
     payload: {
       summaryId: txSummaryId,
+      appointmentId: txAppointmentId,
       patientId,
       conversationId: txConversationId,
       generatedAt: new Date()
@@ -187,15 +290,36 @@ try {
   session.endSession();
 }
 
-if (db.preconsultation_summaries.findOne({ _id: txSummaryId })) {
-  throw new Error("Summary persisted after transaction rollback");
+if (
+  db.preconsultation_summaries.findOne({
+    _id: txSummaryId
+  })
+) {
+  throw new Error(
+    "Summary persisted after transaction rollback"
+  );
 }
 
-if (db.outbox_events.findOne({ _id: txEventId })) {
-  throw new Error("Outbox event persisted after transaction rollback");
+if (
+  db.outbox_events.findOne({
+    _id: txEventId
+  })
+) {
+  throw new Error(
+    "Outbox event persisted after transaction rollback"
+  );
 }
 
 db.idempotency_records.deleteMany({});
 db.outbox_events.deleteMany({});
 
-print("HU-06 reliability persistence tests passed.");
+db.preconsultation_summaries.deleteMany({
+  $or: [
+    { _id: txSummaryId },
+    { appointmentId: txAppointmentId }
+  ]
+});
+
+print(
+  "HU-06 reliability persistence tests passed."
+);
