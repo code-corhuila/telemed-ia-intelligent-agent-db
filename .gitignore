@@ -1,0 +1,6 @@
+.env
+*.log
+liquibase-output.txt
+*.pem
+*.key
+.DS_Store
