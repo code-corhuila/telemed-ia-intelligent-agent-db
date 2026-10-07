@@ -214,7 +214,8 @@ databaseChangeLog:
                       "key",
                       "resourceType",
                       "resourceId",
-                      "createdAt"
+                      "createdAt",
+                      "expiresAt"
                     ],
                     "additionalProperties": false,
                     "properties": {
@@ -251,6 +252,9 @@ databaseChangeLog:
                       },
                       "createdAt": {
                         "bsonType": "date"
+                      },
+                      "expiresAt": {
+                        "bsonType": "date"
                       }
                     }
                   }
@@ -265,7 +269,7 @@ databaseChangeLog:
   - changeSet:
       id: hu-06-006-create-outbox-events
       author: JulianaFerro1428
-      comment: Create transactional outbox for pre-consultation summary events
+      comment: Create outbox persistence for pre-consultation summary events
       changes:
         - createCollection:
             collectionName: outbox_events
@@ -306,7 +310,11 @@ databaseChangeLog:
                         "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
                       },
                       "status": {
-                        "enum": ["PENDING", "PUBLISHED", "FAILED"]
+                        "enum": [
+                          "PENDING",
+                          "PUBLISHED",
+                          "FAILED"
+                        ]
                       },
                       "occurredAt": {
                         "bsonType": "date"
