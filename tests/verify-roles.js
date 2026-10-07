@@ -1,4 +1,5 @@
 const databaseName = "intelligent_agent";
+
 const businessCollections = [
   "conversations",
   "messages",
@@ -6,6 +7,14 @@ const businessCollections = [
   "idempotency_records",
   "outbox_events"
 ];
+
+const liquibaseCollections = [
+  "databasechangelog_intelligent_agent",
+  "databasechangeloglock_intelligent_agent"
+];
+
+const readerRoleName = "intelligent_agent_reader";
+const writerRoleName = "intelligent_agent_writer";
 
 function getRoleOrFail(roleName) {
   const role = db.getRole(roleName, {
@@ -28,58 +37,83 @@ function privilegeFor(role, collection) {
   );
 }
 
-const reader = getRoleOrFail("intelligent_agent_reader");
-const writer = getRoleOrFail("intelligent_agent_writer");
+function assertExactActions(label, actualActions, expectedActions) {
+  const actual = [...actualActions].sort();
+  const expected = [...expectedActions].sort();
+
+  if (
+    actual.length !== expected.length ||
+    actual.some((action, index) => action !== expected[index])
+  ) {
+    throw new Error(
+      `${label}: expected [${expected.join(", ")}], got [${actual.join(", ")}]`
+    );
+  }
+}
+
+const reader = getRoleOrFail(readerRoleName);
+const writer = getRoleOrFail(writerRoleName);
+
+if (reader.roles.length !== 0) {
+  throw new Error(
+    `${readerRoleName} must not inherit other roles`
+  );
+}
 
 for (const collection of businessCollections) {
   const readerPrivilege = privilegeFor(reader, collection);
 
   if (!readerPrivilege) {
     throw new Error(
-      `Reader role has no privilege for ${collection}`
+      `${readerRoleName} has no privilege for ${collection}`
     );
   }
 
-  if (
-    readerPrivilege.actions.length !== 1 ||
-    !readerPrivilege.actions.includes("find")
-  ) {
-    throw new Error(
-      `Reader role must only have find on ${collection}`
-    );
-  }
+  assertExactActions(
+    `${readerRoleName}.${collection}`,
+    readerPrivilege.actions,
+    ["find"]
+  );
 }
 
 const writerInheritedReader = writer.roles.some(
   role =>
-    role.role === "intelligent_agent_reader" &&
+    role.role === readerRoleName &&
     role.db === databaseName
 );
 
 if (!writerInheritedReader) {
   throw new Error(
-    "Writer role must inherit intelligent_agent_reader"
+    `${writerRoleName} must inherit ${readerRoleName}`
   );
 }
 
-const expectedWriterActions = ["insert", "remove", "update"];
+if (writer.roles.length !== 1) {
+  throw new Error(
+    `${writerRoleName} must inherit only ${readerRoleName}`
+  );
+}
+
+const expectedWriterActions = [
+  "insert",
+  "remove",
+  "update"
+];
 
 for (const collection of businessCollections) {
   const writerPrivilege = privilegeFor(writer, collection);
 
   if (!writerPrivilege) {
     throw new Error(
-      `Writer role has no write privilege for ${collection}`
+      `${writerRoleName} has no write privilege for ${collection}`
     );
   }
 
-  for (const action of expectedWriterActions) {
-    if (!writerPrivilege.actions.includes(action)) {
-      throw new Error(
-        `Writer role is missing ${action} on ${collection}`
-      );
-    }
-  }
+  assertExactActions(
+    `${writerRoleName}.${collection}`,
+    writerPrivilege.actions,
+    expectedWriterActions
+  );
 }
 
 const forbiddenActions = [
@@ -101,14 +135,27 @@ for (const role of [reader, writer]) {
       );
     }
 
+    const collection = privilege.resource.collection;
+
     if (
-      privilege.resource.collection &&
-      !businessCollections.includes(
-        privilege.resource.collection
-      )
+      collection === "" ||
+      collection === undefined ||
+      collection === null
     ) {
       throw new Error(
-        `${role.role} has privilege on unexpected collection ${privilege.resource.collection}`
+        `${role.role} must not have database-wide collection privileges`
+      );
+    }
+
+    if (liquibaseCollections.includes(collection)) {
+      throw new Error(
+        `${role.role} must not access Liquibase control collection ${collection}`
+      );
+    }
+
+    if (!businessCollections.includes(collection)) {
+      throw new Error(
+        `${role.role} has privilege on unexpected collection ${collection}`
       );
     }
 
@@ -120,6 +167,18 @@ for (const role of [reader, writer]) {
       }
     }
   }
+}
+
+if (reader.privileges.length !== businessCollections.length) {
+  throw new Error(
+    `${readerRoleName} must define exactly ${businessCollections.length} collection privileges`
+  );
+}
+
+if (writer.privileges.length !== businessCollections.length) {
+  throw new Error(
+    `${writerRoleName} must define exactly ${businessCollections.length} direct collection privileges`
+  );
 }
 
 print("Intelligent Agent database role tests passed.");
