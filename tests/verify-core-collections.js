@@ -103,8 +103,46 @@ expectRejected("summary without consultation reason", () => {
   });
 });
 
+const expectedIndexes = [
+  ["conversations", "uq_conversations_active_patient"],
+  ["messages", "idx_messages_conversation_timestamp"],
+  ["preconsultation_summaries", "uq_summaries_conversation"],
+  ["preconsultation_summaries", "idx_summaries_patient"]
+];
+
+for (const [collectionName, indexName] of expectedIndexes) {
+  const exists = db.getCollection(collectionName)
+    .getIndexes()
+    .some(index => index.name === indexName);
+
+  if (!exists) {
+    throw new Error(`Missing index: ${collectionName}.${indexName}`);
+  }
+}
+
+expectRejected("second active conversation for patient", () => {
+  db.conversations.insertOne({
+    _id: "99999999-9999-4999-8999-999999999999",
+    patientId,
+    startDateTime: new Date(),
+    status: "ACTIVE",
+    createdAt: new Date(),
+    updatedAt: new Date()
+  });
+});
+
+expectRejected("duplicate summary for conversation", () => {
+  db.preconsultation_summaries.insertOne({
+    _id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    conversationId,
+    patientId,
+    consultationReason: "Repeated summary",
+    createdAt: new Date()
+  });
+});
 db.conversations.deleteMany({});
 db.messages.deleteMany({});
 db.preconsultation_summaries.deleteMany({});
 
 print("Core HU-06 MongoDB validation tests passed.");
+
