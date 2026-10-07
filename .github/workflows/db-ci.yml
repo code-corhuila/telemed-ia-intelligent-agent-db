@@ -1,0 +1,119 @@
+name: Database CI
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  MONGO_IMAGE: mongo:8.0.32
+  DATABASE_NAME: intelligent_agent
+
+jobs:
+  reconstruct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create CI network
+        run: docker network create db-ci
+
+      - name: Start MongoDB replica set
+        run: |
+          docker run -d \
+            --name mongo \
+            --network db-ci \
+            "$MONGO_IMAGE" \
+            --replSet rs0 \
+            --bind_ip_all
+
+          for i in {1..30}; do
+            if docker exec mongo mongosh --quiet \
+              --eval "db.adminCommand({ ping: 1 }).ok" | grep -qx "1"; then
+              break
+            fi
+            sleep 2
+          done
+
+          docker exec mongo mongosh --quiet --eval \
+            "rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]})"
+
+          for i in {1..30}; do
+            if docker exec mongo mongosh --quiet \
+              --eval "rs.status().myState" | grep -qx "1"; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "MongoDB replica set did not become PRIMARY"
+          docker logs mongo
+          exit 1
+
+      - name: Build Liquibase MongoDB image
+        run: |
+          docker build \
+            --file deploy/liquibase.Dockerfile \
+            --tag telemed-agent-liquibase:ci \
+            .
+
+      - name: Apply migrations from empty database
+        run: |
+          docker run --rm \
+            --network db-ci \
+            --volume "$PWD:/workspace:ro" \
+            telemed-agent-liquibase:ci \
+            --search-path=/workspace \
+            --changelog-file=changelog/changelog-master.yaml \
+            --url="mongodb://mongo:27017/${DATABASE_NAME}?replicaSet=rs0" \
+            --database-changelog-table-name=databasechangelog_intelligent_agent \
+            --database-changelog-lock-table-name=databasechangeloglock_intelligent_agent \
+            update
+
+      - name: Verify second update applies no pending migrations
+        run: |
+          docker run --rm \
+            --network db-ci \
+            --volume "$PWD:/workspace:ro" \
+            telemed-agent-liquibase:ci \
+            --search-path=/workspace \
+            --changelog-file=changelog/changelog-master.yaml \
+            --url="mongodb://mongo:27017/${DATABASE_NAME}?replicaSet=rs0" \
+            --database-changelog-table-name=databasechangelog_intelligent_agent \
+            --database-changelog-lock-table-name=databasechangeloglock_intelligent_agent \
+            update
+
+      - name: Roll back all changesets
+        run: |
+          docker run --rm \
+            --network db-ci \
+            --volume "$PWD:/workspace:ro" \
+            telemed-agent-liquibase:ci \
+            --search-path=/workspace \
+            --changelog-file=changelog/changelog-master.yaml \
+            --url="mongodb://mongo:27017/${DATABASE_NAME}?replicaSet=rs0" \
+            --database-changelog-table-name=databasechangelog_intelligent_agent \
+            --database-changelog-lock-table-name=databasechangeloglock_intelligent_agent \
+            rollback-count --count=999
+
+      - name: Rebuild after rollback
+        run: |
+          docker run --rm \
+            --network db-ci \
+            --volume "$PWD:/workspace:ro" \
+            telemed-agent-liquibase:ci \
+            --search-path=/workspace \
+            --changelog-file=changelog/changelog-master.yaml \
+            --url="mongodb://mongo:27017/${DATABASE_NAME}?replicaSet=rs0" \
+            --database-changelog-table-name=databasechangelog_intelligent_agent \
+            --database-changelog-lock-table-name=databasechangeloglock_intelligent_agent \
+            update
+
+      - name: Show MongoDB logs on failure
+        if: failure()
+        run: docker logs mongo
