@@ -40,11 +40,11 @@ databaseChangeLog:
   - changeSet:
       id: hu-06-007-create-reliability-indexes
       author: JulianaFerro1428
-      comment: Add idempotency and outbox reliability indexes
+      comment: Add idempotency retention and outbox reliability indexes
       changes:
         - runCommand:
             command: |
-              {"createIndexes":"idempotency_records","indexes":[{"key":{"principalId":1,"operation":1,"key":1},"name":"uq_idempotency_principal_operation_key","unique":true}]}
+              {"createIndexes":"idempotency_records","indexes":[{"key":{"principalId":1,"operation":1,"key":1},"name":"uq_idempotency_principal_operation_key","unique":true},{"key":{"expiresAt":1},"name":"idx_idempotency_expires_at","expireAfterSeconds":0}]}
 
         - runCommand:
             command: |
@@ -58,6 +58,10 @@ databaseChangeLog:
         - runCommand:
             command: |
               {"dropIndexes":"outbox_events","index":"uq_outbox_summary_event"}
+
+        - runCommand:
+            command: |
+              {"dropIndexes":"idempotency_records","index":"idx_idempotency_expires_at"}
 
         - runCommand:
             command: |
