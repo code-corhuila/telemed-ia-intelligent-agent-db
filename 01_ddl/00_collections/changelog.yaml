@@ -1,1 +1,196 @@
-databaseChangeLog: []
+databaseChangeLog:
+  - changeSet:
+      id: hu-06-001-create-conversations
+      author: JulianaFerro1428
+      comment: Create conversations collection with strict HU-06 validation
+      changes:
+        - createCollection:
+            collectionName: conversations
+            options: |
+              {
+                "validator": {
+                  "$and": [
+                    {
+                      "$jsonSchema": {
+                        "bsonType": "object",
+                        "required": [
+                          "_id",
+                          "patientId",
+                          "startDateTime",
+                          "status",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "_id": {
+                            "bsonType": "string",
+                            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                          },
+                          "patientId": {
+                            "bsonType": "string",
+                            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                          },
+                          "startDateTime": {
+                            "bsonType": "date"
+                          },
+                          "endDateTime": {
+                            "bsonType": "date"
+                          },
+                          "status": {
+                            "enum": [
+                              "ACTIVE",
+                              "FINISHED"
+                            ]
+                          },
+                          "createdAt": {
+                            "bsonType": "date"
+                          },
+                          "updatedAt": {
+                            "bsonType": "date"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "$or": [
+                        {
+                          "status": {
+                            "$ne": "FINISHED"
+                          }
+                        },
+                        {
+                          "endDateTime": {
+                            "$type": "date"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "validationLevel": "strict",
+                "validationAction": "error"
+              }
+      rollback:
+        - dropCollection:
+            collectionName: conversations
+
+  - changeSet:
+      id: hu-06-002-create-messages
+      author: JulianaFerro1428
+      comment: Create messages collection with strict HU-06 validation and idempotency key support
+      changes:
+        - createCollection:
+            collectionName: messages
+            options: |
+              {
+                "validator": {
+                  "$jsonSchema": {
+                    "bsonType": "object",
+                    "required": [
+                      "_id",
+                      "conversationId",
+                      "sender",
+                      "idempotencyKey",
+                      "content",
+                      "timestamp"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "_id": {
+                        "bsonType": "string",
+                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                      },
+                      "conversationId": {
+                        "bsonType": "string",
+                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                      },
+                      "sender": {
+                        "enum": [
+                          "PATIENT",
+                          "AGENT"
+                        ]
+                      },
+                      "idempotencyKey": {
+                        "bsonType": "string",
+                        "minLength": 8,
+                        "maxLength": 128
+                      },
+                      "content": {
+                        "bsonType": "string",
+                        "minLength": 1
+                      },
+                      "timestamp": {
+                        "bsonType": "date"
+                      }
+                    }
+                  }
+                },
+                "validationLevel": "strict",
+                "validationAction": "error"
+              }
+      rollback:
+        - dropCollection:
+            collectionName: messages
+
+  - changeSet:
+      id: hu-06-003-create-preconsultation-summaries
+      author: JulianaFerro1428
+      comment: Create structured pre-consultation summaries with clinical safety boundary
+      changes:
+        - createCollection:
+            collectionName: preconsultation_summaries
+            options: |
+              {
+                "validator": {
+                  "$jsonSchema": {
+                    "bsonType": "object",
+                    "required": [
+                      "_id",
+                      "conversationId",
+                      "patientId",
+                      "consultationReason",
+                      "createdAt"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "_id": {
+                        "bsonType": "string",
+                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                      },
+                      "conversationId": {
+                        "bsonType": "string",
+                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                      },
+                      "patientId": {
+                        "bsonType": "string",
+                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                      },
+                      "consultationReason": {
+                        "bsonType": "string",
+                        "minLength": 1
+                      },
+                      "evolutionTime": {
+                        "bsonType": "string",
+                        "minLength": 1
+                      },
+                      "detailedSymptoms": {
+                        "bsonType": "string",
+                        "minLength": 1
+                      },
+                      "relevantHistory": {
+                        "bsonType": "string",
+                        "minLength": 1
+                      },
+                      "createdAt": {
+                        "bsonType": "date"
+                      }
+                    }
+                  }
+                },
+                "validationLevel": "strict",
+                "validationAction": "error"
+              }
+      rollback:
+        - dropCollection:
+            collectionName: preconsultation_summaries
