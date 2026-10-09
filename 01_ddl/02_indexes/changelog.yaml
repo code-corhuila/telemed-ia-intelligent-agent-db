@@ -66,3 +66,24 @@ databaseChangeLog:
         - runCommand:
             command: |
               {"dropIndexes":"idempotency_records","index":"uq_idempotency_principal_operation_key"}
+  - changeSet:
+      id: hu-06-010-create-appointment-link-indexes
+      author: JulianaFerro1428
+      comment: Enforce one HU-06 pre-consultation and summary per external appointment reference
+      changes:
+        - runCommand:
+            command: |
+              {"createIndexes":"conversations","indexes":[{"key":{"appointmentId":1},"name":"uq_conversations_appointment","unique":true,"partialFilterExpression":{"appointmentId":{"$type":"string"}}}]}
+
+        - runCommand:
+            command: |
+              {"createIndexes":"preconsultation_summaries","indexes":[{"key":{"appointmentId":1},"name":"uq_summaries_appointment","unique":true,"partialFilterExpression":{"appointmentId":{"$type":"string"}}}]}
+
+      rollback:
+        - runCommand:
+            command: |
+              {"dropIndexes":"preconsultation_summaries","index":"uq_summaries_appointment"}
+
+        - runCommand:
+            command: |
+              {"dropIndexes":"conversations","index":"uq_conversations_appointment"}
