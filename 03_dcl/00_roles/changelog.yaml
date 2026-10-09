@@ -1,1 +1,111 @@
-databaseChangeLog: []
+databaseChangeLog:
+  - changeSet:
+      id: hu-06-008-create-domain-roles
+      author: JulianaFerro1428
+      comment: Create least-privilege roles for the Intelligent Agent domain
+      changes:
+        - runCommand:
+            command: |
+              {
+                "createRole": "intelligent_agent_reader",
+                "privileges": [
+                  {
+                    "resource": {
+                      "db": "intelligent_agent",
+                      "collection": "conversations"
+                    },
+                    "actions": ["find"]
+                  },
+                  {
+                    "resource": {
+                      "db": "intelligent_agent",
+                      "collection": "messages"
+                    },
+                    "actions": ["find"]
+                  },
+                  {
+                    "resource": {
+                      "db": "intelligent_agent",
+                      "collection": "preconsultation_summaries"
+                    },
+                    "actions": ["find"]
+                  },
+                  {
+                    "resource": {
+                      "db": "intelligent_agent",
+                      "collection": "idempotency_records"
+                    },
+                    "actions": ["find"]
+                  },
+                  {
+                    "resource": {
+                      "db": "intelligent_agent",
+                      "collection": "outbox_events"
+                    },
+                    "actions": ["find"]
+                  }
+                ],
+                "roles": []
+              }
+
+        - runCommand:
+            command: |
+              {
+                "createRole": "intelligent_agent_writer",
+                "privileges": [
+                  {
+                    "resource": {
+                      "db": "intelligent_agent",
+                      "collection": "conversations"
+                    },
+                    "actions": ["insert", "update", "remove"]
+                  },
+                  {
+                    "resource": {
+                      "db": "intelligent_agent",
+                      "collection": "messages"
+                    },
+                    "actions": ["insert", "update", "remove"]
+                  },
+                  {
+                    "resource": {
+                      "db": "intelligent_agent",
+                      "collection": "preconsultation_summaries"
+                    },
+                    "actions": ["insert", "update", "remove"]
+                  },
+                  {
+                    "resource": {
+                      "db": "intelligent_agent",
+                      "collection": "idempotency_records"
+                    },
+                    "actions": ["insert", "update", "remove"]
+                  },
+                  {
+                    "resource": {
+                      "db": "intelligent_agent",
+                      "collection": "outbox_events"
+                    },
+                    "actions": ["insert", "update", "remove"]
+                  }
+                ],
+                "roles": [
+                  {
+                    "role": "intelligent_agent_reader",
+                    "db": "intelligent_agent"
+                  }
+                ]
+              }
+
+      rollback:
+        - runCommand:
+            command: |
+              {
+                "dropRole": "intelligent_agent_writer"
+              }
+
+        - runCommand:
+            command: |
+              {
+                "dropRole": "intelligent_agent_reader"
+              }
