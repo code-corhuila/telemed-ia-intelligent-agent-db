@@ -1,0 +1,31 @@
+services:
+  intelligent-agent-db-migrate:
+    build:
+      context: .
+      dockerfile: liquibase.Dockerfile
+
+    profiles:
+      - tooling
+
+    working_dir: /workspace
+
+    volumes:
+      - ../:/workspace:ro
+
+    networks:
+      - platform
+
+    command:
+      - --search-path=/workspace
+      - --changelog-file=changelog/changelog-master.yaml
+      - --url=mongodb://${MONGO_HOST:-mongo}:${MONGO_PORT:-27017}/${INTELLIGENT_AGENT_DB_NAME:-intelligent_agent}?replicaSet=${MONGO_REPLICA_SET:-rs0}&authSource=admin
+      - --username=${MONGO_ADMIN_USER:?MONGO_ADMIN_USER is required}
+      - --password=${MONGO_ADMIN_PASSWORD:?MONGO_ADMIN_PASSWORD is required}
+      - --database-changelog-table-name=databasechangelog_intelligent_agent
+      - --database-changelog-lock-table-name=databasechangeloglock_intelligent_agent
+      - update
+
+networks:
+  platform:
+    external: true
+    name: platform

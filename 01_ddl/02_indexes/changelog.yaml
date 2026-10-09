@@ -1,0 +1,89 @@
+databaseChangeLog:
+  - changeSet:
+      id: hu-06-004-create-core-indexes
+      author: JulianaFerro1428
+      comment: Add HU-06 core indexes and uniqueness invariants
+      changes:
+        - runCommand:
+            command: |
+              {"createIndexes":"conversations","indexes":[{"key":{"patientId":1},"name":"uq_conversations_active_patient","unique":true,"partialFilterExpression":{"status":"ACTIVE"}}]}
+
+        - runCommand:
+            command: |
+              {"createIndexes":"messages","indexes":[{"key":{"conversationId":1,"timestamp":1},"name":"idx_messages_conversation_timestamp"},{"key":{"conversationId":1,"sender":1,"idempotencyKey":1},"name":"uq_messages_conversation_sender_idempotency","unique":true}]}
+
+        - runCommand:
+            command: |
+              {"createIndexes":"preconsultation_summaries","indexes":[{"key":{"conversationId":1},"name":"uq_summaries_conversation","unique":true},{"key":{"patientId":1},"name":"idx_summaries_patient"}]}
+
+      rollback:
+        - runCommand:
+            command: |
+              {"dropIndexes":"preconsultation_summaries","index":"idx_summaries_patient"}
+
+        - runCommand:
+            command: |
+              {"dropIndexes":"preconsultation_summaries","index":"uq_summaries_conversation"}
+
+        - runCommand:
+            command: |
+              {"dropIndexes":"messages","index":"uq_messages_conversation_sender_idempotency"}
+
+        - runCommand:
+            command: |
+              {"dropIndexes":"messages","index":"idx_messages_conversation_timestamp"}
+
+        - runCommand:
+            command: |
+              {"dropIndexes":"conversations","index":"uq_conversations_active_patient"}
+
+  - changeSet:
+      id: hu-06-007-create-reliability-indexes
+      author: JulianaFerro1428
+      comment: Add idempotency retention and outbox reliability indexes
+      changes:
+        - runCommand:
+            command: |
+              {"createIndexes":"idempotency_records","indexes":[{"key":{"principalId":1,"operation":1,"key":1},"name":"uq_idempotency_principal_operation_key","unique":true},{"key":{"expiresAt":1},"name":"idx_idempotency_expires_at","expireAfterSeconds":0}]}
+
+        - runCommand:
+            command: |
+              {"createIndexes":"outbox_events","indexes":[{"key":{"aggregateId":1,"eventType":1},"name":"uq_outbox_summary_event","unique":true},{"key":{"status":1,"occurredAt":1},"name":"idx_outbox_status_occurred_at"}]}
+
+      rollback:
+        - runCommand:
+            command: |
+              {"dropIndexes":"outbox_events","index":"idx_outbox_status_occurred_at"}
+
+        - runCommand:
+            command: |
+              {"dropIndexes":"outbox_events","index":"uq_outbox_summary_event"}
+
+        - runCommand:
+            command: |
+              {"dropIndexes":"idempotency_records","index":"idx_idempotency_expires_at"}
+
+        - runCommand:
+            command: |
+              {"dropIndexes":"idempotency_records","index":"uq_idempotency_principal_operation_key"}
+  - changeSet:
+      id: hu-06-010-create-appointment-link-indexes
+      author: JulianaFerro1428
+      comment: Enforce one HU-06 pre-consultation and summary per external appointment reference
+      changes:
+        - runCommand:
+            command: |
+              {"createIndexes":"conversations","indexes":[{"key":{"appointmentId":1},"name":"uq_conversations_appointment","unique":true,"partialFilterExpression":{"appointmentId":{"$type":"string"}}}]}
+
+        - runCommand:
+            command: |
+              {"createIndexes":"preconsultation_summaries","indexes":[{"key":{"appointmentId":1},"name":"uq_summaries_appointment","unique":true,"partialFilterExpression":{"appointmentId":{"$type":"string"}}}]}
+
+      rollback:
+        - runCommand:
+            command: |
+              {"dropIndexes":"preconsultation_summaries","index":"uq_summaries_appointment"}
+
+        - runCommand:
+            command: |
+              {"dropIndexes":"conversations","index":"uq_conversations_appointment"}
