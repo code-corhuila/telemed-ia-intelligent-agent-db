@@ -194,3 +194,167 @@ databaseChangeLog:
       rollback:
         - dropCollection:
             collectionName: preconsultation_summaries
+
+  - changeSet:
+      id: hu-06-005-create-idempotency-records
+      author: JulianaFerro1428
+      comment: Create idempotency records for retry-safe HU-06 operations
+      changes:
+        - createCollection:
+            collectionName: idempotency_records
+            options: |
+              {
+                "validator": {
+                  "$jsonSchema": {
+                    "bsonType": "object",
+                    "required": [
+                      "_id",
+                      "principalId",
+                      "operation",
+                      "key",
+                      "resourceType",
+                      "resourceId",
+                      "createdAt",
+                      "expiresAt"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "_id": {
+                        "bsonType": "string",
+                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                      },
+                      "principalId": {
+                        "bsonType": "string",
+                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                      },
+                      "operation": {
+                        "enum": [
+                          "START_PRECONSULTATION",
+                          "SEND_MESSAGE",
+                          "FINISH_PRECONSULTATION"
+                        ]
+                      },
+                      "key": {
+                        "bsonType": "string",
+                        "minLength": 8,
+                        "maxLength": 128
+                      },
+                      "resourceType": {
+                        "enum": [
+                          "CONVERSATION",
+                          "MESSAGE",
+                          "PRECONSULTATION_SUMMARY"
+                        ]
+                      },
+                      "resourceId": {
+                        "bsonType": "string",
+                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                      },
+                      "createdAt": {
+                        "bsonType": "date"
+                      },
+                      "expiresAt": {
+                        "bsonType": "date"
+                      }
+                    }
+                  }
+                },
+                "validationLevel": "strict",
+                "validationAction": "error"
+              }
+      rollback:
+        - dropCollection:
+            collectionName: idempotency_records
+
+  - changeSet:
+      id: hu-06-006-create-outbox-events
+      author: JulianaFerro1428
+      comment: Create outbox persistence for pre-consultation summary events
+      changes:
+        - createCollection:
+            collectionName: outbox_events
+            options: |
+              {
+                "validator": {
+                  "$jsonSchema": {
+                    "bsonType": "object",
+                    "required": [
+                      "_id",
+                      "eventType",
+                      "aggregateType",
+                      "aggregateId",
+                      "correlationId",
+                      "status",
+                      "occurredAt",
+                      "createdAt",
+                      "payload"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "_id": {
+                        "bsonType": "string",
+                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                      },
+                      "eventType": {
+                        "enum": ["PreConsultationSummaryGenerated"]
+                      },
+                      "aggregateType": {
+                        "enum": ["PRECONSULTATION_SUMMARY"]
+                      },
+                      "aggregateId": {
+                        "bsonType": "string",
+                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                      },
+                      "correlationId": {
+                        "bsonType": "string",
+                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                      },
+                      "status": {
+                        "enum": [
+                          "PENDING",
+                          "PUBLISHED",
+                          "FAILED"
+                        ]
+                      },
+                      "occurredAt": {
+                        "bsonType": "date"
+                      },
+                      "createdAt": {
+                        "bsonType": "date"
+                      },
+                      "payload": {
+                        "bsonType": "object",
+                        "required": [
+                          "summaryId",
+                          "patientId",
+                          "conversationId",
+                          "generatedAt"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "summaryId": {
+                            "bsonType": "string",
+                            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                          },
+                          "patientId": {
+                            "bsonType": "string",
+                            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                          },
+                          "conversationId": {
+                            "bsonType": "string",
+                            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                          },
+                          "generatedAt": {
+                            "bsonType": "date"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "validationLevel": "strict",
+                "validationAction": "error"
+              }
+      rollback:
+        - dropCollection:
+            collectionName: outbox_events
