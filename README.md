@@ -101,6 +101,11 @@ business change.
 The event payload exposes identifiers only and does not duplicate the full
 conversation or clinical content.
 
+An event may also carry the optional `traceparent` (W3C trace context,
+`00-<trace-id>-<span-id>-<flags>`, lowercase hex) of the request that produced
+it, so the relay can continue the same trace across the message broker
+(changeset `hu-06-010`, checked by `tests/verify-outbox-trace-context.js`).
+
 ## Database access roles
 
 Database access follows the principle of least privilege.
